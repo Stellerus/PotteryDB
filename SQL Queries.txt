@@ -1,0 +1,244 @@
+--Tables
+
+-- USERS: customers who buy products
+CREATE TABLE Users (
+    UserID SERIAL PRIMARY KEY,
+    FullName VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    PhoneNumber VARCHAR(20),
+    PasswordHash TEXT NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ADMINS: staff who manage the shop
+CREATE TABLE Admins (
+    AdminID SERIAL PRIMARY KEY,
+    FullName VARCHAR(100) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    PasswordHash TEXT NOT NULL
+);
+
+-- CATEGORIES: product categories
+CREATE TABLE Categories (
+    CategoryID SERIAL PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL UNIQUE,
+    Description TEXT
+);
+
+-- PRODUCTS: ceramics and pottery items
+CREATE TABLE Products (
+    ProductID SERIAL PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Description TEXT,
+    Price NUMERIC(10, 2) NOT NULL CHECK (Price >= 0),
+    StockQuantity INT NOT NULL CHECK (StockQuantity >= 0),
+    CategoryID INT REFERENCES Categories(CategoryID) ON DELETE SET NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ORDERS: placed orders
+CREATE TABLE Orders (
+    OrderID SERIAL PRIMARY KEY,
+    UserID INT REFERENCES Users(UserID) ON DELETE CASCADE,
+    OrderDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    Status VARCHAR(50) DEFAULT 'Pending',  -- e.g., Pending, Shipped, Delivered
+    TotalAmount NUMERIC(10, 2) NOT NULL CHECK (TotalAmount >= 0)
+);
+
+-- ORDER ITEMS: items in each order
+CREATE TABLE OrderItems (
+    OrderItemID SERIAL PRIMARY KEY,
+    OrderID INT REFERENCES Orders(OrderID) ON DELETE CASCADE,
+    ProductID INT REFERENCES Products(ProductID),
+    Quantity INT NOT NULL CHECK (Quantity > 0),
+    UnitPrice NUMERIC(10, 2) NOT NULL CHECK (UnitPrice >= 0)
+);
+
+-- CART: current shopping cart for each user
+CREATE TABLE Cart (
+    CartID SERIAL PRIMARY KEY,
+    UserID INT REFERENCES Users(UserID) ON DELETE CASCADE,
+    ProductID INT REFERENCES Products(ProductID),
+    Quantity INT NOT NULL CHECK (Quantity > 0),
+    UNIQUE (UserID, ProductID)
+);
+
+-- REVIEWS: user reviews for products
+CREATE TABLE Reviews (
+    ReviewID SERIAL PRIMARY KEY,
+    UserID INT REFERENCES Users(UserID) ON DELETE CASCADE,
+    ProductID INT REFERENCES Products(ProductID) ON DELETE CASCADE,
+    Rating INT CHECK (Rating BETWEEN 1 AND 5),
+    Comment TEXT,
+    ReviewDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (UserID, ProductID)  -- only one review per user per product
+);
+
+--Data load
+-- Ensure required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Load CATEGORIES
+COPY Categories(Name, Description)
+FROM '/path/to/Categories.csv' DELIMITER ',' CSV HEADER;
+
+-- Load USERS
+COPY Users(FullName, Email, PhoneNumber, PasswordHash)
+FROM '/path/to/Users.csv' DELIMITER ',' CSV HEADER;
+
+-- Load ADMINS
+COPY Admins(FullName, Email, PasswordHash)
+FROM '/path/to/Admins.csv' DELIMITER ',' CSV HEADER;
+
+-- Load PRODUCTS
+COPY Products(Name, Description, Price, StockQuantity, CategoryID)
+FROM '/path/to/Products.csv' DELIMITER ',' CSV HEADER;
+
+-- Load ORDERS
+COPY Orders(UserID, OrderDate, Status, TotalAmount)
+FROM '/path/to/Orders.csv' DELIMITER ',' CSV HEADER;
+
+-- Load ORDER ITEMS
+COPY OrderItems(OrderID, ProductID, Quantity, UnitPrice)
+FROM '/path/to/OrderItems.csv' DELIMITER ',' CSV HEADER;
+
+-- Load CART
+COPY Cart(UserID, ProductID, Quantity)
+FROM '/path/to/Cart.csv' DELIMITER ',' CSV HEADER;
+
+-- Load REVIEWS
+COPY Reviews(UserID, ProductID, Rating, Comment, ReviewDate)
+FROM '/path/to/Reviews.csv' DELIMITER ',' CSV HEADER;
+
+
+--OLAP Schema
+-- DIM_DATE
+CREATE TABLE Dim_Date (
+    DateID DATE PRIMARY KEY,
+    Day INT,
+    Month INT,
+    Quarter INT,
+    Year INT
+);
+
+-- DIM_CUSTOMER
+CREATE TABLE Dim_Customer (
+    CustomerID INT PRIMARY KEY,
+    FullName VARCHAR(100),
+    Email VARCHAR(100)
+);
+
+-- DIM_CATEGORY
+CREATE TABLE Dim_Category (
+    CategoryID INT PRIMARY KEY,
+    Name VARCHAR(100)
+);
+
+-- DIM_PRODUCT (SCD TYPE 2)
+CREATE TABLE Dim_Product (
+    ProductSK SERIAL PRIMARY KEY,
+    ProductID INT,
+    Name VARCHAR(100),
+    Price NUMERIC(10, 2),
+    CategoryID INT,
+    StartDate DATE,
+    EndDate DATE,
+    IsCurrent BOOLEAN,
+    FOREIGN KEY (CategoryID) REFERENCES Dim_Category(CategoryID)
+);
+
+-- BRIDGE TABLE: Product to Category (if multi-category applies)
+CREATE TABLE Bridge_ProductCategory (
+    ProductID INT,
+    CategoryID INT,
+    PRIMARY KEY (ProductID, CategoryID),
+    FOREIGN KEY (ProductID) REFERENCES Dim_Product(ProductID),
+    FOREIGN KEY (CategoryID) REFERENCES Dim_Category(CategoryID)
+);
+
+-- FACT_SALES
+CREATE TABLE Fact_Sales (
+    SalesID SERIAL PRIMARY KEY,
+    ProductSK INT REFERENCES Dim_Product(ProductSK),
+    CustomerID INT REFERENCES Dim_Customer(CustomerID),
+    DateID DATE REFERENCES Dim_Date(DateID),
+    Quantity INT,
+    TotalRevenue NUMERIC(10, 2)
+);
+
+-- FACT_REVIEW_SCORE
+CREATE TABLE Fact_ReviewScore (
+    ReviewID SERIAL PRIMARY KEY,
+    ProductSK INT REFERENCES Dim_Product(ProductSK),
+    CustomerID INT REFERENCES Dim_Customer(CustomerID),
+    DateID DATE REFERENCES Dim_Date(DateID),
+    Rating INT
+);
+
+--OLTP to OLAP
+-- DIM_DATE (load from CSV)
+COPY Dim_Date(DateID, Day, Month, Quarter, Year)
+FROM '/path/to/Dim_Date.csv' DELIMITER ',' CSV HEADER;
+
+-- DIM_CUSTOMER
+INSERT INTO Dim_Customer(CustomerID, FullName, Email)
+SELECT u.UserID, u.FullName, u.Email
+FROM Users u
+ON CONFLICT (CustomerID) DO NOTHING;
+
+-- DIM_CATEGORY
+INSERT INTO Dim_Category(CategoryID, Name)
+SELECT c.CategoryID, c.Name
+FROM Categories c
+ON CONFLICT (CategoryID) DO NOTHING;
+
+-- DIM_PRODUCT (SCD TYPE 2)
+-- Insert only new or changed products
+WITH src AS (
+  SELECT p.ProductID, p.Name, p.Price, p.CategoryID
+  FROM Products p
+),
+latest AS (
+  SELECT * FROM Dim_Product WHERE IsCurrent = TRUE
+)
+INSERT INTO Dim_Product(ProductID, Name, Price, CategoryID, StartDate, EndDate, IsCurrent)
+SELECT s.ProductID, s.Name, s.Price, s.CategoryID, CURRENT_DATE, NULL, TRUE
+FROM src s
+LEFT JOIN latest l ON s.ProductID = l.ProductID
+WHERE l.ProductID IS NULL
+   OR (s.Name <> l.Name OR s.Price <> l.Price OR s.CategoryID <> l.CategoryID);
+
+-- Close previous version in SCD
+UPDATE Dim_Product
+SET EndDate = CURRENT_DATE - INTERVAL '1 day', IsCurrent = FALSE
+WHERE ProductID IN (
+  SELECT l.ProductID
+  FROM Dim_Product l
+  JOIN Products p ON p.ProductID = l.ProductID
+  WHERE l.IsCurrent = TRUE
+    AND (p.Name <> l.Name OR p.Price <> l.Price OR p.CategoryID <> l.CategoryID)
+);
+
+-- FACT_SALES
+INSERT INTO Fact_Sales(ProductSK, CustomerID, DateID, Quantity, TotalRevenue)
+SELECT
+  dp.ProductSK,
+  o.UserID,
+  DATE(o.OrderDate),
+  oi.Quantity,
+  oi.Quantity * oi.UnitPrice
+FROM Orders o
+JOIN OrderItems oi ON o.OrderID = oi.OrderID
+JOIN Dim_Product dp ON dp.ProductID = oi.ProductID AND dp.IsCurrent = TRUE
+ON CONFLICT DO NOTHING;
+
+-- FACT_REVIEW_SCORE
+INSERT INTO Fact_ReviewScore(ProductSK, CustomerID, DateID, Rating)
+SELECT
+  dp.ProductSK,
+  r.UserID,
+  DATE(r.ReviewDate),
+  r.Rating
+FROM Reviews r
+JOIN Dim_Product dp ON dp.ProductID = r.ProductID AND dp.IsCurrent = TRUE
+ON CONFLICT DO NOTHING;
