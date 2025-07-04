@@ -1,0 +1,28 @@
+-- FDW
+
+CREATE EXTENSION IF NOT EXISTS postgres_fdw;
+
+-- foreign server connection to OLTP
+CREATE SERVER pottery_oltp_server
+FOREIGN DATA WRAPPER postgres_fdw
+OPTIONS (
+    host 'localhost',
+    port '5432',
+    dbname 'PotteryDB'
+);
+
+-- user mapping
+CREATE USER MAPPING FOR CURRENT_USER
+SERVER pottery_oltp_server
+OPTIONS (
+    user 'postgres',
+    password '12345'
+);
+
+-- schema to house imported OLTP tables
+CREATE SCHEMA IF NOT EXISTS oltp_import;
+
+-- import
+IMPORT FOREIGN SCHEMA public
+FROM SERVER pottery_oltp_server
+INTO oltp_import;

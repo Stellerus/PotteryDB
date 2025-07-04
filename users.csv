@@ -1,0 +1,4 @@
+UserID,Name,Email,PasswordHash,UserType
+1,Anna Keller,anna@example.com,$2a$12$abc123,customer
+2,Dovydas Petraitis,dovydas@example.com,$2a$12$xyz456,admin
+3,Tina Novak,tina@example.com,$2a$12$hash789,customer

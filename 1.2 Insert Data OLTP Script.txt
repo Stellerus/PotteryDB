@@ -1,0 +1,249 @@
+-- Ensure folder is readeable for everyone before running
+-- Use your local path
+-- I could not use psql in pgAdmin as command line is in different encoding
+
+-- Users
+COPY Users FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/users.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+-- Brands
+COPY Brands FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/brands.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+-- Categories
+COPY Categories FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/categories.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+-- Products
+COPY Products FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/products.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+-- Orders
+COPY Orders FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/orders.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+-- Order Details
+COPY OrderDetails FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/order_details.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+-- Reviews
+COPY Reviews FROM 'C:/Users/petro/OneDrive/Documentos/GitHub/PotteryDB/reviews.csv'
+WITH (FORMAT csv, HEADER, ENCODING 'UTF8');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Do not use. Relative paths won't work for a server
+-- Transaction for loading of data from .csv
+
+BEGIN;
+
+-- Categories
+CREATE TEMP TABLE tmp_categories (
+    CategoryID INT,
+    Name VARCHAR(50)
+);
+COPY tmp_categories FROM 'data/categories.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO Categories (CategoryID, Name)
+SELECT CategoryID, Name FROM tmp_categories
+ON CONFLICT (CategoryID) DO NOTHING;
+
+-- Brands
+CREATE TEMP TABLE tmp_brands (
+    BrandID INT,
+    BrandName VARCHAR(100),
+    OriginCountry VARCHAR(50)
+);
+COPY tmp_brands FROM 'data/brands.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO Brands (BrandID, BrandName, OriginCountry)
+SELECT BrandID, BrandName, OriginCountry FROM tmp_brands
+ON CONFLICT (BrandID) DO NOTHING;
+
+-- Users
+CREATE TEMP TABLE tmp_users (
+    UserID INT,
+    Name VARCHAR(100),
+    Email VARCHAR(100),
+    PasswordHash VARCHAR(255),
+    UserType VARCHAR(20)
+);
+COPY tmp_users FROM 'data/users.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO Users (UserID, Name, Email, PasswordHash, UserType)
+SELECT UserID, Name, Email, PasswordHash, UserType FROM tmp_users
+ON CONFLICT (UserID) DO NOTHING;
+
+-- Products
+CREATE TEMP TABLE tmp_products (
+    ProductID INT,
+    Name VARCHAR(100),
+    Description TEXT,
+    CategoryID INT,
+    BrandID INT,
+    Price DECIMAL(10,2),
+    StockQty INT
+);
+COPY tmp_products FROM 'data/products.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO Products (ProductID, Name, Description, CategoryID, BrandID, Price, StockQty)
+SELECT ProductID, Name, Description, CategoryID, BrandID, Price, StockQty FROM tmp_products
+ON CONFLICT (ProductID) DO NOTHING;
+
+-- Orders
+CREATE TEMP TABLE tmp_orders (
+    OrderID INT,
+    UserID INT,
+    OrderDate DATE,
+    TotalAmount DECIMAL(10,2),
+    PaymentStatus VARCHAR(20),
+    DeliveryStatus VARCHAR(20)
+);
+COPY tmp_orders FROM 'data/orders.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO Orders (OrderID, UserID, OrderDate, TotalAmount, PaymentStatus, DeliveryStatus)
+SELECT OrderID, UserID, OrderDate, TotalAmount, PaymentStatus, DeliveryStatus FROM tmp_orders
+ON CONFLICT (OrderID) DO NOTHING;
+
+-- OrderDetails
+CREATE TEMP TABLE tmp_order_details (
+    OrderID INT,
+    ProductID INT,
+    Quantity INT,
+    UnitPrice DECIMAL(10,2)
+);
+COPY tmp_order_details FROM 'data/order_details.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO OrderDetails (OrderID, ProductID, Quantity, UnitPrice)
+SELECT OrderID, ProductID, Quantity, UnitPrice FROM tmp_order_details
+ON CONFLICT (OrderID, ProductID) DO NOTHING;
+
+-- Reviews
+CREATE TEMP TABLE tmp_reviews (
+    ReviewID INT,
+    UserID INT,
+    ProductID INT,
+    Rating INT,
+    Comment TEXT,
+    ReviewDate DATE
+);
+COPY tmp_reviews FROM 'data/reviews.csv' DELIMITER ',' CSV HEADER;
+INSERT INTO Reviews (ReviewID, UserID, ProductID, Rating, Comment, ReviewDate)
+SELECT ReviewID, UserID, ProductID, Rating, Comment, ReviewDate FROM tmp_reviews
+ON CONFLICT (ReviewID) DO NOTHING;
+
+COMMIT;
+

@@ -1,0 +1,4 @@
+OrderID,UserID,OrderDate,TotalAmount,PaymentStatus,DeliveryStatus
+101,1,2025-06-01,45.00,Paid,Shipped
+102,3,2025-06-03,32.00,Pending,Processing
+103,1,2025-06-05,29.00,Paid,Delivered

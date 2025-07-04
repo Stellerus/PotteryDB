@@ -1,0 +1,4 @@
+ReviewID,UserID,ProductID,Rating,Comment,ReviewDate
+201,1,1,5,"Beautiful mug, I love the glaze!",2025-06-02
+202,3,2,4,"Lovely vase but a bit smaller than expected.",2025-06-04
+203,1,5,5,"Perfect teapot for herbal blends!",2025-06-06

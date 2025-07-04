@@ -1,0 +1,90 @@
+-- DimDate
+CREATE TABLE IF NOT EXISTS DimDate (
+    DateID INT PRIMARY KEY,             -- e.g., 20250704
+    FullDate DATE NOT NULL,
+    DayOfWeekName VARCHAR(10),
+    DayOfMonth INT,
+    WeekOfYear INT,
+    Month INT,
+    MonthName VARCHAR(15),
+    Quarter INT,
+    Year INT
+);
+
+-- DimCategory
+CREATE TABLE IF NOT EXISTS DimCategory (
+    CategoryID INT PRIMARY KEY,
+    CategoryName VARCHAR(50)
+);
+
+-- DimBrand
+CREATE TABLE IF NOT EXISTS DimBrand (
+    BrandID INT PRIMARY KEY,
+    BrandName VARCHAR(100),
+    Country VARCHAR(50)
+);
+
+-- DimProduct
+CREATE TABLE IF NOT EXISTS DimProduct (
+    ProductID INT PRIMARY KEY,
+    ProductName VARCHAR(100),
+    BrandID INT,
+    CategoryID INT,
+    FOREIGN KEY (BrandID) REFERENCES DimBrand(BrandID),
+    FOREIGN KEY (CategoryID) REFERENCES DimCategory(CategoryID)
+);
+
+-- DimCustomer (SCD Type 2)
+CREATE TABLE IF NOT EXISTS DimCustomer (
+    CustomerSK SERIAL PRIMARY KEY,
+    CustomerID INT,
+    Name VARCHAR(100),
+    Email VARCHAR(100),
+    StartDate DATE,
+    EndDate DATE,
+    IsCurrent BOOLEAN,
+    UNIQUE (CustomerID, StartDate)
+);
+
+-- DimOrderChannel
+CREATE TABLE IF NOT EXISTS DimOrderChannel (
+    ChannelID SERIAL PRIMARY KEY,
+    ChannelName VARCHAR(50)
+);
+
+-- FactSales
+CREATE TABLE IF NOT EXISTS FactSales (
+    SalesID SERIAL PRIMARY KEY,
+    DateID INT,
+    ProductID INT,
+    CustomerSK INT,
+    ChannelID INT,
+    QuantitySold INT,
+    UnitPrice DECIMAL(10,2),
+    TotalAmount DECIMAL(12,2),
+    FOREIGN KEY (DateID) REFERENCES DimDate(DateID),
+    FOREIGN KEY (ProductID) REFERENCES DimProduct(ProductID),
+    FOREIGN KEY (CustomerSK) REFERENCES DimCustomer(CustomerSK),
+    FOREIGN KEY (ChannelID) REFERENCES DimOrderChannel(ChannelID)
+);
+
+-- FactReviewScores
+CREATE TABLE IF NOT EXISTS FactReviewScores (
+    ReviewID SERIAL PRIMARY KEY,
+    DateID INT,
+    ProductID INT,
+    CustomerSK INT,
+    Rating INT CHECK (Rating BETWEEN 1 AND 5),
+    FOREIGN KEY (DateID) REFERENCES DimDate(DateID),
+    FOREIGN KEY (ProductID) REFERENCES DimProduct(ProductID),
+    FOREIGN KEY (CustomerSK) REFERENCES DimCustomer(CustomerSK)
+);
+
+-- BridgeProductCategory
+CREATE TABLE IF NOT EXISTS BridgeProductCategory (
+    ProductID INT,
+    CategoryID INT,
+    PRIMARY KEY (ProductID, CategoryID),
+    FOREIGN KEY (ProductID) REFERENCES DimProduct(ProductID),
+    FOREIGN KEY (CategoryID) REFERENCES DimCategory(CategoryID)
+);

@@ -1,0 +1,40 @@
+                         [DimDate]
+                             ▲
+                             │
+                     +---------------+
+                     |   FactSales   |
+                     +---------------+
+                     │ SalesID (PK)  │
+                     │ DateID        │◄────[DimDate.DateID]
+                     │ ProductID     │◄────[DimProduct.ProductID]
+                     │ CustomerSK    │◄────[DimCustomer.CustomerSK]
+                     │ ChannelID     │◄────[DimOrderChannel.ChannelID]
+                     │ Qty, Price... │
+                     +---------------+
+                             ▲
+        +--------------------┼---------------------+
+        │                    │                     │
+        ▼                    ▼                     ▼
+ [DimProduct]         [DimCustomer]       [DimOrderChannel]
+     ▲                      │
+     │                      └── Tracks SCD2 history
+     │
+     ├────────[DimCategory]
+     │
+     └────────[DimBrand]
+
+                     +--------------------+
+                     | FactReviewScores   |
+                     +--------------------+
+                     │ ReviewID (PK)      │
+                     │ DateID             │◄────[DimDate.DateID]
+                     │ ProductID          │◄────[DimProduct.ProductID]
+                     │ CustomerSK         │◄────[DimCustomer.CustomerSK]
+                     │ Rating             │
+                     +--------------------+
+
+
+   [BridgeProductCategory]
+         │       │
+         ▼       ▼
+ [DimProduct] [DimCategory]

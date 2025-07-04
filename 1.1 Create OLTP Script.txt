@@ -1,0 +1,72 @@
+-- Creating tables
+
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY,
+    Name VARCHAR(100),
+    Email VARCHAR(100) UNIQUE,
+    PasswordHash VARCHAR(255),
+    UserType VARCHAR(20) -- 'customer' or 'admin'
+);
+
+CREATE TABLE Categories (
+    CategoryID INT PRIMARY KEY,
+    Name VARCHAR(50)
+);
+
+CREATE TABLE Brands (
+    BrandID INT PRIMARY KEY,
+    BrandName VARCHAR(100),
+    OriginCountry VARCHAR(50)
+);
+
+CREATE TABLE Products (
+    ProductID INT PRIMARY KEY,
+    Name VARCHAR(100),
+    Description TEXT,
+    CategoryID INT,
+    BrandID INT,
+    Price DECIMAL(10,2),
+    StockQty INT,
+    FOREIGN KEY (CategoryID) REFERENCES Categories(CategoryID),
+    FOREIGN KEY (BrandID) REFERENCES Brands(BrandID)
+);
+
+CREATE TABLE Orders (
+    OrderID INT PRIMARY KEY,
+    UserID INT,
+    OrderDate DATE,
+    TotalAmount DECIMAL(10,2),
+    PaymentStatus VARCHAR(20),
+    DeliveryStatus VARCHAR(20),
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
+);
+
+CREATE TABLE OrderDetails (
+    OrderID INT,
+    ProductID INT,
+    Quantity INT,
+    UnitPrice DECIMAL(10,2),
+    PRIMARY KEY (OrderID, ProductID),
+    FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+CREATE TABLE Reviews (
+    ReviewID INT PRIMARY KEY,
+    UserID INT,
+    ProductID INT,
+    Rating INT CHECK (Rating BETWEEN 1 AND 5),
+    Comment TEXT,
+    ReviewDate DATE,
+    FOREIGN KEY (UserID) REFERENCES Users(UserID),
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+);
+
+CREATE TABLE AdminActions (
+    ActionID INT PRIMARY KEY,
+    AdminID INT,
+    ActionType VARCHAR(50),
+    TargetEntity VARCHAR(100),
+    ActionTimestamp TIMESTAMP,
+    FOREIGN KEY (AdminID) REFERENCES Users(UserID)
+);

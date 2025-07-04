@@ -1,0 +1,99 @@
+BEGIN;
+
+-- DimDate
+CREATE TABLE IF NOT EXISTS DimDate (
+    DateID INT PRIMARY KEY,
+    FullDate DATE NOT NULL,
+    DayOfWeekName VARCHAR(10),
+    DayOfMonth INT,
+    WeekOfYear INT,
+    Month INT,
+    MonthName VARCHAR(15),
+    Quarter INT,
+    Year INT
+);
+
+-- Calendar from 2024 to 2026
+INSERT INTO DimDate (
+    DateID, FullDate, DayOfWeekName, DayOfMonth,
+    WeekOfYear, Month, MonthName, Quarter, Year
+)
+SELECT
+    TO_CHAR(d, 'YYYYMMDD')::INT,
+    d,
+    TO_CHAR(d, 'Day'),
+    EXTRACT(DAY FROM d)::INT,
+    EXTRACT(WEEK FROM d)::INT,
+    EXTRACT(MONTH FROM d)::INT,
+    TO_CHAR(d, 'Month'),
+    EXTRACT(QUARTER FROM d)::INT,
+    EXTRACT(YEAR FROM d)::INT
+FROM generate_series('2024-01-01'::DATE, '2026-12-31'::DATE, INTERVAL '1 day') d
+ON CONFLICT (DateID) DO NOTHING;
+
+
+-- DimCustomer (SCD Type 2 only new customers insert)
+INSERT INTO DimCustomer (CustomerID, Name, Email, StartDate, EndDate, IsCurrent)
+SELECT
+    u.UserID,
+    u.Name,
+    u.Email,
+    CURRENT_DATE,
+    NULL,
+    TRUE
+FROM oltp_import.Users u
+LEFT JOIN DimCustomer d ON u.UserID = d.CustomerID AND d.IsCurrent = TRUE
+WHERE d.CustomerID IS NULL;
+
+-- DimCategory
+INSERT INTO DimCategory (CategoryID, CategoryName)
+SELECT CategoryID, Name
+FROM oltp_import.Categories
+ON CONFLICT (CategoryID) DO NOTHING;
+
+-- DimBrand
+INSERT INTO DimBrand (BrandID, BrandName, Country)
+SELECT BrandID, BrandName, OriginCountry
+FROM oltp_import.Brands
+ON CONFLICT (BrandID) DO NOTHING;
+
+-- DimProduct
+INSERT INTO DimProduct (ProductID, ProductName, BrandID, CategoryID)
+SELECT ProductID, Name, BrandID, CategoryID
+FROM oltp_import.Products
+ON CONFLICT (ProductID) DO NOTHING;
+
+-- DimOrderChannel
+INSERT INTO DimOrderChannel (ChannelName)
+VALUES ('Online');
+
+-- FactSales
+INSERT INTO FactSales (
+    DateID, ProductID, CustomerSK, ChannelID,
+    QuantitySold, UnitPrice, TotalAmount
+)
+SELECT
+    TO_CHAR(o.OrderDate, 'YYYYMMDD')::INT,
+    od.ProductID,
+    dc.CustomerSK,
+    1,  -- Static: 'Online'
+    od.Quantity,
+    od.UnitPrice,
+    od.Quantity * od.UnitPrice
+FROM oltp_import.Orders o
+JOIN oltp_import.OrderDetails od ON o.OrderID = od.OrderID
+JOIN DimCustomer dc ON dc.CustomerID = o.UserID AND dc.IsCurrent = TRUE;
+
+-- FactReviewScores
+INSERT INTO FactReviewScores (
+    DateID, ProductID, CustomerSK, Rating
+)
+SELECT
+    TO_CHAR(r.ReviewDate, 'YYYYMMDD')::INT,
+    r.ProductID,
+    dc.CustomerSK,
+    r.Rating
+FROM oltp_import.Reviews r
+JOIN DimCustomer dc ON r.UserID = dc.CustomerID AND dc.IsCurrent = TRUE;
+
+COMMIT;

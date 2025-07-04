@@ -1,0 +1,6 @@
+ProductID,Name,Description,CategoryID,BrandID,Price,StockQty
+1,Rustic Mug,Hand-thrown stoneware mug with matte glaze.,1,1,12.50,50
+2,Lotus Vase,Crafted vase with floral embossing.,2,2,32.00,20
+3,Porcelain Plate,Glossy white plate made in Kyoto.,3,2,18.90,35
+4,Sunset Bowl,Colorful bowl perfect for soups.,4,3,15.75,40
+5,Herbal Teapot,Glazed ceramic teapot with infuser.,5,1,29.00,25
